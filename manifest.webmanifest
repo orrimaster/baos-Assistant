@@ -1,0 +1,16 @@
+{
+  "name": "BAOS 공정 CHECKER",
+  "short_name": "BAOS CHECKER",
+  "description": "재단 공정 CHECKER · 공정 기계 적용 범위 CHECKER",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1ec",
+  "theme_color": "#b5122b",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

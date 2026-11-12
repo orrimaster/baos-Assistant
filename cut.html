@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#b5122b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BAOS CHECKER">
+<title>BAOS 판재 절단 계산기 · BAOS CHECKER</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: 소형 한 화면 — 상단 CI 헤더(언어 탭) · 좌측 입력 · 우측 결과 + 배치도 */
+/* BAOS CI: ① 레드(M100Y85→C15M100Y90K20) ② 오렌지(M60Y100→M70Y95) ③ 웜그레이(C25M25Y40K30→C22M25Y40K10) ④ 버건디(M60Y20K90) */
+:root{
+  --ci1a:#E61E3C; --ci1b:#B5172B; --ci2a:#F5921E; --ci2b:#F07B27; --ci3a:#8E8571; --ci3b:#B3A68E; --ci4:#44111A;
+  --brand:#B5172B; --brand-ink:#ffffff; --accent:#F07B27;
+  --bg:#FBF9F6; --panel:#FFFFFF; --fg:#3A2A2C; --muted:#857B6E; --line:#E9E2D7; --field:#FDFCFA; --ph:#C9BEAD;
+  --sheet:#FFFFFF; --border-area:#EFE9DF; --cell:#F6F1E8; --hatch:#DDD1BD; --prod:#44111A; --dim:#E61E3C; --cut:#F07B27;
+  --kerf:#E61E3C; --remain:#DDF0FB; --remain-line:#8CC4E6; --remain-ink:#2F78A8; --warn:#B45A00; --warn-bg:#FDF0DF;
+  --ok:#1E8A50; --ok-bg:#E6F5EC; --bad:#D0193A; --bad-bg:#FCE6E9;
+  /* 영문·숫자: Times New Roman / 한글: 맑은 고딕 */
+  --font:"Times New Roman",Times,"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:12.6px;line-height:1.35}
+.wrap{height:100%;margin:0 auto;padding-block:6px;padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px}
+header{position:relative;display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:14px 12px 10px;overflow:hidden;flex:none;flex-wrap:wrap}
+header::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--ci1a) 0 25%,var(--ci2a) 25% 50%,var(--ci3b) 50% 75%,var(--ci4) 75% 100%)}
+.logo img{height:36px;width:auto;display:block}
+.ttl{min-width:0}
+header h1{margin:0;font-size:16.6px;font-weight:700;color:var(--ci4);white-space:nowrap}
+.meta{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.meta b{color:var(--fg);font-weight:600}
+.lang{margin-left:auto;display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.lang button{border:0;border-right:1px solid var(--line);border-radius:0;padding:3px 9px;font:700 11.5px var(--font);background:var(--field);color:var(--muted);cursor:pointer}
+.lang button:last-child{border-right:0}
+.lang button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink)}
+.main{flex:1;min-height:0;display:grid;grid-template-columns:282px minmax(0,1fr);gap:6px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:7px 9px;min-width:0}
+.panel h2{margin:0 0 4px;font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--brand)}
+form.panel{overflow:auto;display:flex;flex-direction:column;gap:9px}
+.grid{display:grid;grid-template-columns:78px minmax(0,1fr) minmax(0,1fr);gap:3px 4px;align-items:center}
+.grid .hd{font-size:10.5px;color:var(--muted);text-align:center}
+.grid .lb{font-size:11.5px;font-weight:700;line-height:1.15}
+.grid .span2{grid-column:2/4}
+.grid .lb .sub{font-size:9.6px;font-weight:400;color:var(--muted)}
+.row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
+.f{display:flex;flex-direction:column;gap:0;font-size:10.5px;color:var(--muted);min-width:0;text-align:center}
+.blk .lb{font-size:11.5px;font-weight:700;margin-bottom:1px}
+input.n,output.n{width:100%;font:600 13.7px var(--font);font-variant-numeric:tabular-nums;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:3px;padding:2px 6px;height:25px;text-align:right}
+input.n::placeholder{color:var(--ph);font-weight:400}
+input.n:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent);background:#fff}
+.seg{display:flex;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.seg label{flex:1;text-align:center;font-size:11.5px;padding:3px 2px;cursor:pointer;border-right:1px solid var(--line);color:var(--muted);background:var(--field);white-space:nowrap}
+.seg label:last-child{border-right:0}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--brand);color:var(--brand-ink);font-weight:700}
+.seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.cmp:empty{display:none}
+.cmp .ch{grid-column:1/-1;font-size:10.5px;color:var(--muted)}
+.cc{display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:3px 6px;border:1px solid var(--line);background:var(--field);border-radius:3px;cursor:pointer;font-family:var(--font);color:var(--fg)}
+.cc .cl{font-size:10.5px;color:var(--muted);font-weight:700}
+.cc .cn{font-size:15.8px;font-weight:700;line-height:1.2}
+.cc .cd{font-size:10.5px;color:var(--muted)}
+.cc.sel{border-color:var(--brand);background:#FFF5F6;box-shadow:inset 3px 0 0 var(--brand)}
+.cc.sel .cl{color:var(--brand)}
+.cc.no .cn,.cc.no .cd{color:var(--bad)}
+.btns{display:flex;gap:4px;margin-top:auto;padding-top:2px}
+.btn{font:700 11.5px var(--font);border-radius:3px;padding:3px 10px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
+.btn:hover,.cc:hover{border-color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.right{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
+.summary{flex:none}
+.count{background:linear-gradient(90deg,var(--ci1a),var(--ci1b));color:var(--brand-ink);border-radius:4px;padding:6px 10px;display:grid;grid-template-columns:1fr auto;grid-template-areas:"k k" "v d";align-items:end;gap:0 8px}
+.count .k{grid-area:k} .count .v{grid-area:v} .count .d{grid-area:d;padding-bottom:3px}
+.count .k{font-size:11px;opacity:.92;line-height:1.2}
+.count .v{font-size:29.8px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.count .v small{font-size:13.7px;margin-left:3px}
+.count .d{font-size:12.1px;font-weight:700}
+.reshead{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px}
+.status{display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:11px;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.status.ok{color:var(--ok);background:var(--ok-bg)} .status.bad{color:var(--bad);background:var(--bad-bg)} .status.idle{color:var(--muted);background:var(--border-area)} .status.warn{color:var(--warn);background:var(--warn-bg)}
+.status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+table.res{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+table.res th,table.res td{padding:2px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.res th:first-child,table.res td:first-child{text-align:left;white-space:normal}
+table.res thead th{font-size:10.5px;color:var(--muted);font-weight:600}
+table.res td{font-size:13.7px;font-weight:700}
+table.res td:first-child{font-size:11.5px;font-weight:400}
+table.res tr.key td{color:var(--brand);font-size:15.8px}
+table.res tr.key td:first-child{font-size:11.5px;font-weight:700}
+table.res td small{font-size:10px;color:var(--muted);font-weight:400}
+.neg{color:var(--bad)!important}
+output.n{display:flex;align-items:center;justify-content:flex-end}
+output.calc{background:var(--remain);border-color:var(--remain-line);color:var(--remain-ink)}
+.alert{display:flex;flex-direction:column;gap:1px;margin-top:5px;padding:5px 8px;border-radius:4px;background:var(--bad-bg);color:var(--bad);border-left:3px solid var(--bad);font-size:11px;line-height:1.3}
+.alert b{font-size:12.5px}
+.alert span{color:var(--fg)}
+.note{font-size:11px;color:var(--muted);margin:3px 0 0;line-height:1.3}
+.drawpanel{flex:1;min-height:0;display:flex;flex-direction:column}
+.draw{flex:1;min-height:0;position:relative}
+.draw svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.draw .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.1px;border:1px dashed var(--line);border-radius:4px;padding:10px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);margin-top:2px}
+.legend i{display:inline-block;width:12px;height:8px;vertical-align:-1px;margin-right:3px;border:1px solid var(--muted)}
+.dsub{font-size:11px;color:var(--muted)}
+/* 휴대폰 (세로 화면): 입력 → 생산 수 → 결과 → 배치도 순서로 아래로 스크롤 */
+@media (max-width:640px){
+  html,body,.wrap{height:auto}
+  body{font-size:14px;-webkit-text-size-adjust:100%}
+  .wrap{gap:10px;padding-block:calc(env(safe-area-inset-top,0px) + 8px) calc(env(safe-area-inset-bottom,0px) + 16px);padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+  header{padding:12px 12px 10px;gap:8px 10px}
+  .logo img{height:28px}
+  header h1{font-size:18px}
+  .meta{font-size:11px;white-space:normal}
+  .lang{margin-left:0;width:100%}
+  .lang button{flex:1;padding:8px 4px;font-size:13px}
+  .main{grid-template-columns:minmax(0,1fr);gap:10px}
+  .panel{padding:12px}
+  .panel h2{font-size:13px}
+  form.panel{overflow:visible;gap:12px}
+  .grid{grid-template-columns:96px minmax(0,1fr) minmax(0,1fr);gap:6px}
+  .grid .lb,.blk .lb{font-size:14px}
+  .grid .hd,.f{font-size:12px}
+  .row4{gap:6px}
+  input.n,output.n{font-size:16px;height:40px;padding:4px 8px}
+  .seg label{font-size:14px;padding:9px 2px}
+  .count{padding:10px 14px}
+  .count .k{font-size:13px} .count .v{font-size:40px} .count .d{font-size:15px}
+  .cmp .ch{font-size:12px}
+  .cc{padding:8px 10px} .cc .cl{font-size:12px} .cc .cn{font-size:18px} .cc .cd{font-size:12px}
+  .btns{margin-top:0} .btn{font-size:14px;padding:9px 16px}
+  #btnPrint{display:none}
+  .summary .panel{padding:12px}
+  table.res th,table.res td{padding:6px 4px}
+  table.res td{font-size:15px} table.res td:first-child{font-size:13px}
+  table.res tr.key td{font-size:17px} table.res tr.key td:first-child{font-size:13px}
+  table.res td small{font-size:11px}
+  output.n{display:flex;align-items:center;justify-content:flex-end}
+output.calc{background:var(--remain);border-color:var(--remain-line);color:var(--remain-ink)}
+.alert{display:flex;flex-direction:column;gap:1px;margin-top:5px;padding:5px 8px;border-radius:4px;background:var(--bad-bg);color:var(--bad);border-left:3px solid var(--bad);font-size:11px;line-height:1.3}
+.alert b{font-size:12.5px}
+.alert span{color:var(--fg)}
+.note{font-size:12.5px}
+  .reshead{flex-wrap:wrap}
+  .dsub{font-size:12px}
+  .draw{flex:none;aspect-ratio:1/1;max-width:100%}
+  .legend{font-size:12px}
+}
+
+.flag{display:block;width:26px;height:17px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.18)}
+.flagbar{display:flex;align-items:center;gap:6px;margin-left:auto}
+.flagbtn{border:0!important;background:transparent!important;padding:4px!important;border-radius:5px!important;cursor:pointer;opacity:.62;filter:saturate(.75);transition:opacity .15s,filter .15s,box-shadow .15s;line-height:0}
+.flagbtn:hover{opacity:.85;filter:none}
+.flagbtn.on,.flagbtn[aria-pressed="true"]{opacity:1;filter:none;box-shadow:0 0 0 2px #b5122b!important;background:#fff!important}
+.homebtn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:30px;margin-left:4px;border:1px solid #e7e0d5;border-radius:5px;background:#fff;color:#4a1d22;text-decoration:none}
+.homebtn:hover{border-color:#b5122b;color:#b5122b}
+
+@media (max-width:640px){.flagbar{margin-left:auto}}
+@media print{html,body,.wrap{height:auto} .no-print{display:none!important} .draw{flex:none;height:380px}}
+@media (prefers-reduced-motion:no-preference){.btn,.seg label,.cc{transition:background .15s,border-color .15s}}
+</style>
+</head><body>
+
+<div class="wrap">
+  <header>
+    <div class="logo"><img alt="BAOS" src="data:image/jpeg;base64,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"></div>
+    <div class="ttl">
+      <h1 data-i18n="title">판재 절단 계산기</h1>
+      <div class="meta"><span data-i18n="ver">버전</span> <b id="mVer"></b> · <span data-i18n="date">제작일</span> <b id="mDate"></b> · <span data-i18n="author">제작자</span> <b id="mAuthor"></b></div>
+    </div>
+    <div class="flagbar no-print" role="group" aria-label="Language"><button type="button" class="flagbtn" data-lang="ko" aria-pressed="true" title="한국어" aria-label="한국어"><svg class="flag" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="20" fill="#fff"/><g transform="translate(15 10) rotate(33.69)"><path d="M-5 0A5 5 0 0 1 5 0Z" fill="#cd2e3a"/><path d="M-5 0A5 5 0 0 0 5 0Z" fill="#0047a0"/><circle cx="-2.5" cy="0" r="2.5" fill="#cd2e3a"/><circle cx="2.5" cy="0" r="2.5" fill="#0047a0"/></g><g fill="#000"><g transform="translate(6.2 4.6) rotate(-56.31)"><rect x="-2.2" y="-1.60" width="4.4" height="0.75"/><rect x="-2.2" y="-0.45" width="4.4" height="0.75"/><rect x="-2.2" y="0.70" width="4.4" height="0.75"/></g><g transform="translate(23.8 15.4) rotate(-56.31)"><rect x="-2.2" y="-1.60" width="4.4" height="0.75"/><rect x="-2.2" y="-0.45" width="4.4" height="0.75"/><rect x="-2.2" y="0.70" width="4.4" height="0.75"/></g><g transform="translate(23.8 4.6) rotate(56.31)"><rect x="-2.2" y="-1.60" width="4.4" height="0.75"/><rect x="-2.2" y="-0.45" width="4.4" height="0.75"/><rect x="-2.2" y="0.70" width="4.4" height="0.75"/></g><g transform="translate(6.2 15.4) rotate(56.31)"><rect x="-2.2" y="-1.60" width="4.4" height="0.75"/><rect x="-2.2" y="-0.45" width="4.4" height="0.75"/><rect x="-2.2" y="0.70" width="4.4" height="0.75"/></g></g></svg></button><button type="button" class="flagbtn" data-lang="en" aria-pressed="false" title="English" aria-label="English"><svg class="flag" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="20" fill="#fff"/><g fill="#b22234"><rect y="0.000" width="30" height="1.538"/><rect y="3.077" width="30" height="1.538"/><rect y="6.154" width="30" height="1.538"/><rect y="9.231" width="30" height="1.538"/><rect y="12.308" width="30" height="1.538"/><rect y="15.385" width="30" height="1.538"/><rect y="18.462" width="30" height="1.538"/></g><rect width="12.4" height="10.769" fill="#3c3b6e"/><g fill="#fff"><circle cx="1.40" cy="1.30" r="0.42"/><circle cx="3.70" cy="1.30" r="0.42"/><circle cx="6.00" cy="1.30" r="0.42"/><circle cx="8.30" cy="1.30" r="0.42"/><circle cx="10.60" cy="1.30" r="0.42"/><circle cx="1.40" cy="3.40" r="0.42"/><circle cx="3.70" cy="3.40" r="0.42"/><circle cx="6.00" cy="3.40" r="0.42"/><circle cx="8.30" cy="3.40" r="0.42"/><circle cx="10.60" cy="3.40" r="0.42"/><circle cx="1.40" cy="5.50" r="0.42"/><circle cx="3.70" cy="5.50" r="0.42"/><circle cx="6.00" cy="5.50" r="0.42"/><circle cx="8.30" cy="5.50" r="0.42"/><circle cx="10.60" cy="5.50" r="0.42"/><circle cx="1.40" cy="7.60" r="0.42"/><circle cx="3.70" cy="7.60" r="0.42"/><circle cx="6.00" cy="7.60" r="0.42"/><circle cx="8.30" cy="7.60" r="0.42"/><circle cx="10.60" cy="7.60" r="0.42"/><circle cx="1.40" cy="9.70" r="0.42"/><circle cx="3.70" cy="9.70" r="0.42"/><circle cx="6.00" cy="9.70" r="0.42"/><circle cx="8.30" cy="9.70" r="0.42"/><circle cx="10.60" cy="9.70" r="0.42"/></g></svg></button><button type="button" class="flagbtn" data-lang="vi" aria-pressed="false" title="Tiếng Việt" aria-label="Tiếng Việt"><svg class="flag" viewBox="0 0 30 20" aria-hidden="true"><rect width="30" height="20" fill="#da251d"/><polygon points="15.00,4.40 16.41,8.46 20.71,8.55 17.28,11.14 18.53,15.25 15.00,12.80 11.47,15.25 12.72,11.14 9.29,8.55 13.59,8.46" fill="#ffff00"/></svg></button><a class="homebtn no-print" href="index.html" title="메인 메뉴 · Main menu · Menu chính" aria-label="메인 메뉴 · Main menu · Menu chính"><svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg></a></div>
+  </header>
+
+  <div class="main">
+    <form class="panel" id="form" autocomplete="off">
+      <h2 data-i18n="inputs">입력 파라메터</h2>
+      <div class="grid">
+        <span></span><span class="hd">X</span><span class="hd">Y</span>
+        <span class="lb" data-i18n="raw">원자재 크기</span>
+        <input class="n" id="rawX" inputmode="decimal" enterkeyhint="next" placeholder="mm" aria-label="raw X">
+        <input class="n" id="rawY" inputmode="decimal" enterkeyhint="next" placeholder="mm" aria-label="raw Y">
+        <span class="lb" data-i18n="prd">완제품 크기</span>
+        <input class="n" id="prdX" inputmode="decimal" enterkeyhint="next" placeholder="mm" aria-label="product X">
+        <input class="n" id="prdY" inputmode="decimal" enterkeyhint="next" placeholder="mm" aria-label="product Y">
+        <span class="lb"><span data-i18n="mg">다음 공정 가공 마진</span><br><small class="sub" data-i18n="mgSub">제품 1개당</small></span>
+        <input class="n" id="mX" inputmode="decimal" enterkeyhint="next" placeholder="0" aria-label="margin X">
+        <input class="n" id="mY" inputmode="decimal" enterkeyhint="next" placeholder="0" aria-label="margin Y">
+        <span class="lb"><span data-i18n="pc">재단할 크기</span><br><small class="sub" data-i18n="pcSub">완제품 + 마진</small></span>
+        <output class="n calc" id="pcX">-</output>
+        <output class="n calc" id="pcY">-</output>
+        <span class="lb"><span data-i18n="cut">절단 폭</span><br><small class="sub" data-i18n="cutSub">X·Y 공통</small></span>
+        <input class="n span2" id="cut" inputmode="decimal" enterkeyhint="next" placeholder="0" aria-label="cut width X,Y">
+      </div>
+      <div class="blk">
+        <div class="lb" data-i18n="border">테두리 마진 (mm)</div>
+        <div class="row4">
+          <label class="f"><span data-i18n="top">상</span><input class="n" id="bT" inputmode="decimal" enterkeyhint="next" placeholder="0"></label>
+          <label class="f"><span data-i18n="bottom">하</span><input class="n" id="bB" inputmode="decimal" enterkeyhint="next" placeholder="0"></label>
+          <label class="f"><span data-i18n="left">좌</span><input class="n" id="bL" inputmode="decimal" enterkeyhint="next" placeholder="0"></label>
+          <label class="f"><span data-i18n="right">우</span><input class="n" id="bR" inputmode="decimal" enterkeyhint="next" placeholder="0"></label>
+        </div>
+      </div>
+      <div class="blk">
+        <div class="lb" data-i18n="ori">배치 방향</div>
+        <div class="seg" role="radiogroup">
+          <label><input type="radio" name="ori" id="oriAuto" value="auto" checked><span data-i18n="auto">자동</span></label>
+          <label><input type="radio" name="ori" id="oriN" value="n"><span data-i18n="normal">정방향</span></label>
+          <label><input type="radio" name="ori" id="oriR" value="r"><span data-i18n="rot">90° 회전</span></label>
+        </div>
+      </div>
+      <div class="count">
+        <div class="k" data-i18n="count">생산 가능 제품 수</div>
+        <div class="v" id="oCount">-</div>
+        <div class="d" id="oGrid">X - × Y -</div>
+      </div>
+      <div class="cmp" id="cmp" aria-live="polite"></div>
+      <div class="btns no-print">
+        <button type="button" class="btn" id="btnReset" data-i18n="reset">초기화</button>
+        <button type="button" class="btn" id="btnPrint" data-i18n="print">인쇄</button>
+      </div>
+    </form>
+
+    <div class="right">
+      <div class="summary">
+        <div class="panel">
+          <div class="reshead"><h2 style="margin:0" data-i18n="outputs">출력 파라메터</h2><span class="status idle" id="oStatus"></span></div>
+          <table class="res">
+            <thead><tr><th></th><th>X</th><th>Y</th></tr></thead>
+            <tbody>
+              <tr class="key"><td data-i18n="pieces">절단 배치 개수</td><td id="oNx">-</td><td id="oNy">-</td></tr>
+              <tr><td data-i18n="total">생산 가능 제품 수 (합계)</td><td colspan="2" id="oTot">-</td></tr>
+            </tbody>
+          </table>
+          <div class="alert" id="oWarn" hidden></div>
+          <p class="note" id="oNote"></p>
+        </div>
+      </div>
+
+      <div class="panel drawpanel">
+        <div class="reshead"><h2 style="margin:0" data-i18n="layout">분할 형태</h2><span class="dsub" id="oOri"></span></div>
+        <div class="draw" id="draw"></div>
+        <div class="legend">
+          <span><i style="background:var(--cell);border-color:var(--prod)"></i><span data-i18n="lgCut">재단할 크기</span></span>
+          <span><i style="border:1px dashed var(--prod);background:transparent"></i><span data-i18n="lgPrd">완제품 외곽</span></span>
+          <span><i style="background:var(--kerf);border-color:var(--kerf)"></i><span data-i18n="lgKerf">절단 폭</span></span>
+          <span><i style="background:var(--remain);border-color:var(--remain-line)"></i><span data-i18n="lgRemain">원자재 잔량</span></span>
+          <span><i style="background:var(--border-area)"></i><span data-i18n="lgEdge">테두리 마진</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 프로그램 정보 (여기만 고치면 표시가 바뀝니다) =====
+const APP_VERSION = "v1.5.0";
+const APP_DATE    = "2026-11-10";
+const APP_AUTHOR  = "Kwag.DS";
+// 기본값 (빈칸 "" = 0으로 계산)
+const DEFAULTS = {rawX:3597, rawY:3297, prdX:1000, prdY:1000, mX:"", mY:"", cut:3, bT:3, bB:"", bL:3, bR:""};
+// 테두리 마진 경고 기준: 이 값 이상인 면이 MIN_SIDES 곳 미만이면 경고
+const BORDER_MIN = 3, MIN_SIDES = 2;
+// ===========================================================
+
+const I18N = {
+  ko:{title:"판재 절단 계산기",ver:"버전",date:"제작일",author:"제작자",inputs:"입력 파라메터",raw:"원자재 크기",prd:"완제품 크기",
+    mg:"다음 공정 가공 마진",mgSub:"제품 1개당",pc:"재단할 크기",pcSub:"완제품 + 마진",cut:"절단 폭",cutSub:"X·Y 공통",
+    border:"테두리 마진 (mm)",top:"상",bottom:"하",left:"좌",right:"우",ori:"배치 방향",auto:"자동",normal:"정방향",rot:"90° 회전",
+    reset:"초기화",print:"인쇄",count:"생산 가능 제품 수",pcs:"개",outputs:"출력 파라메터",pieces:"절단 배치 개수",total:"생산 가능 제품 수 (합계)",
+    layout:"분할 형태",lgCut:"재단할 크기",lgPrd:"완제품 외곽",lgKerf:"절단 폭",lgRemain:"원자재 잔량",lgEdge:"테두리 마진",
+    stOk:"재단 가능",stBad:"원자재 부족",stIdle:"입력 대기",stWarn:"주의",
+    warnBorder:"재단 작업 어려움 및 직각도 위험",
+    warnBorderSub:"테두리 마진 {min} mm 이상인 면이 {n}곳입니다. 상·하·좌·우 중 최소 {req}곳은 {min} mm 이상 필요합니다.",
+    noteOk:"원자재 잔량: X {x}, Y {y} (좌측 하단부터 배치)",
+    noteBad:"재단할 크기가 원자재보다 {s} 큽니다. 마진이나 테두리를 줄이거나 배치 방향을 바꿔 보세요.",
+    noteIdle:"원자재와 완제품 크기를 입력하면 바로 계산됩니다. 마진, 절단 폭, 테두리 마진은 비워 두면 0입니다.",
+    cmpAuto:"자동 선택 근거",cmpMan:"배치 비교",applied:"적용",na:"불가",short:"{s} 부족",remain:"잔량",
+    oriN:"정방향 배치",oriR:"90° 회전 배치",sheet:"원자재",product:"제품",empty:"원자재와 완제품 크기를 입력하면 분할 형태가 그려집니다.",
+    maxCells:"{n}개까지만 표시"},
+  en:{title:"Sheet Cutting Calculator",ver:"Version",date:"Date",author:"Author",inputs:"Inputs",raw:"Sheet size",prd:"Product size",
+    mg:"Next-process margin",mgSub:"per product",pc:"Cut size",pcSub:"product + margin",cut:"Cut width",cutSub:"X·Y same",
+    border:"Edge margin (mm)",top:"Top",bottom:"Bottom",left:"Left",right:"Right",ori:"Orientation",auto:"Auto",normal:"Normal",rot:"Rotate 90°",
+    reset:"Reset",print:"Print",count:"Products per sheet",pcs:"pcs",outputs:"Results",pieces:"Pieces per row/column",total:"Products per sheet (total)",
+    layout:"Cutting layout",lgCut:"Cut size",lgPrd:"Product outline",lgKerf:"Cut width",lgRemain:"Remaining sheet",lgEdge:"Edge margin",
+    stOk:"Can be cut",stBad:"Sheet too small",stIdle:"Waiting for input",stWarn:"Caution",
+    warnBorder:"Cutting difficult · squareness risk",
+    warnBorderSub:"{n} side(s) have an edge margin of {min} mm or more. At least {req} of top, bottom, left and right need {min} mm or more.",
+    noteOk:"Remaining sheet: X {x}, Y {y} (laid out from the bottom-left corner)",
+    noteBad:"The cut size is {s} larger than the sheet. Reduce the margin or edge margin, or change the orientation.",
+    noteIdle:"Enter the sheet and product sizes to calculate. A blank margin, cut width or edge margin counts as 0.",
+    cmpAuto:"Why Auto chose this",cmpMan:"Layout comparison",applied:"applied",na:"Does not fit",short:"{s} short",remain:"Left",
+    oriN:"Normal layout",oriR:"Rotated 90°",sheet:"Sheet",product:"Product",empty:"The cutting layout appears once the sheet and product sizes are entered.",
+    maxCells:"Showing first {n} only"},
+  vi:{title:"Máy tính cắt tấm",ver:"Phiên bản",date:"Ngày tạo",author:"Người tạo",inputs:"Thông số đầu vào",raw:"Kích thước phôi",prd:"Kích thước SP",
+    mg:"Dung sai gia công sau",mgSub:"mỗi sản phẩm",pc:"Kích thước cắt",pcSub:"SP + dung sai",cut:"Bề rộng cắt",cutSub:"X·Y chung",
+    border:"Biên mép (mm)",top:"Trên",bottom:"Dưới",left:"Trái",right:"Phải",ori:"Hướng xếp",auto:"Tự động",normal:"Chuẩn",rot:"Xoay 90°",
+    reset:"Đặt lại",print:"In",count:"Số sản phẩm mỗi tấm",pcs:"cái",outputs:"Kết quả",pieces:"Số lượng cắt xếp",total:"Số sản phẩm mỗi tấm (tổng)",
+    layout:"Sơ đồ cắt",lgCut:"Kích thước cắt",lgPrd:"Đường bao sản phẩm",lgKerf:"Bề rộng cắt",lgRemain:"Phôi còn lại",lgEdge:"Biên mép",
+    stOk:"Cắt được",stBad:"Thiếu phôi",stIdle:"Chờ nhập",stWarn:"Chú ý",
+    warnBorder:"Khó cắt và nguy cơ sai độ vuông góc",
+    warnBorderSub:"Có {n} cạnh có biên mép từ {min} mm trở lên. Cần ít nhất {req} cạnh (trên, dưới, trái, phải) từ {min} mm trở lên.",
+    noteOk:"Phôi còn lại: X {x}, Y {y} (xếp từ góc dưới bên trái)",
+    noteBad:"Kích thước cắt lớn hơn phôi {s}. Hãy giảm dung sai hoặc biên mép, hoặc đổi hướng xếp.",
+    noteIdle:"Nhập kích thước phôi và sản phẩm để tính. Dung sai, bề rộng cắt và biên mép để trống được tính là 0.",
+    cmpAuto:"Cơ sở chọn tự động",cmpMan:"So sánh bố trí",applied:"áp dụng",na:"Không xếp được",short:"thiếu {s}",remain:"Dư",
+    oriN:"Bố trí chuẩn",oriR:"Xoay 90°",sheet:"Phôi",product:"SP",empty:"Sơ đồ cắt sẽ hiện khi nhập kích thước phôi và sản phẩm.",
+    maxCells:"Chỉ hiển thị {n} ô đầu"}
+};
+let lang = "ko";
+try { const l = (localStorage.getItem("baos-lang")||localStorage.getItem("baos-cut-lang")); if (I18N[l]) lang = l; } catch(e){}
+const t = (k, p={}) => (I18N[lang][k] ?? I18N.ko[k]).replace(/\{(\w+)\}/g, (_, n) => p[n]);
+
+const $ = id => document.getElementById(id);
+const IDS = ["rawX","rawY","prdX","prdY","mX","mY","cut","bT","bB","bL","bR"];
+
+$("mVer").textContent = APP_VERSION; $("mDate").textContent = APP_DATE; $("mAuthor").textContent = APP_AUTHOR;
+
+// 숫자 (천단위 구분기호)
+const parse = s => { const v = parseFloat(String(s).replace(/,/g, "").trim()); return isFinite(v) ? v : NaN; };
+const num = id => { const v = parse($(id).value); return isFinite(v) ? v : 0; };
+const r6 = v => Math.round(v*1e6)/1e6;
+const fmt = v => isFinite(v) ? (Math.round(v*100)/100).toLocaleString("en-US", {maximumFractionDigits:2}) : "-";
+const mm = v => fmt(v) + " mm";
+
+// 한 방향: 사용폭 = 원자재 - 테두리2개, 개수 = INT((사용폭+절단폭)/(재단크기+절단폭)), 최소 1
+function axis(raw, pc, cut, b1, b2){
+  const avail = raw - b1 - b2;
+  let n = (pc + cut) > 0 ? Math.floor(r6((avail + cut)/(pc + cut))) : 0;
+  if (n < 1) n = 1;
+  const rem = r6(avail - n*pc - (n-1)*cut);   // 마지막 재단품 뒤 남는 길이 (음수 = 부족)
+  const net = rem > 0 ? r6(rem - Math.min(cut, rem)) : 0;   // 잔량 분리 절단 후 실제 남는 판재
+  return {n, rem, net, avail};
+}
+// px,py = 완제품 / qx,qy = 재단할 크기 (배치 방향 기준)
+function layout(px, py, qx, qy, p){
+  const ax = axis(p.rawX, qx, p.cut, p.bL, p.bR);
+  const ay = axis(p.rawY, qy, p.cut, p.bT, p.bB);
+  return {px, py, qx, qy, ax, ay, count: ax.n*ay.n, fit: ax.rem >= 0 && ay.rem >= 0, minR: Math.min(ax.rem, ay.rem)};
+}
+function short(L){
+  const a = []; if (L.ax.rem < 0) a.push(`X ${mm(-L.ax.rem)}`); if (L.ay.rem < 0) a.push(`Y ${mm(-L.ay.rem)}`);
+  return a.join(", ");
+}
+function read(){
+  const p = {}; IDS.forEach(k => p[k] = num(k));
+  p.ori = document.querySelector("input[name=ori]:checked").value;
+  p.qX = p.prdX + p.mX; p.qY = p.prdY + p.mY;
+  return p;
+}
+function calc(p){
+  const N = layout(p.prdX, p.prdY, p.qX, p.qY, p), R = layout(p.prdY, p.prdX, p.qY, p.qX, p);
+  let L, rot;
+  if (p.ori === "n") { L = N; rot = false; }
+  else if (p.ori === "r") { L = R; rot = true; }
+  else {
+    // 자동: 원자재 안에 들어가는 배치 우선 → 수량 많은 쪽 → 잔량 넉넉한 쪽 → 정방향
+    const better = (R.fit && !N.fit) || (R.fit === N.fit && (R.count > N.count || (R.count === N.count && R.minR > N.minR + 1e-9)));
+    L = better ? R : N; rot = better;
+  }
+  return {L, rot, N, R};
+}
+function borderSides(p){ return [p.bT, p.bB, p.bL, p.bR].filter(v => v >= BORDER_MIN - 1e-9).length; }
+
+function clearOut(){
+  $("oCount").innerHTML = `-<small>${t("pcs")}</small>`; $("oGrid").textContent = "X - × Y -";
+  ["oNx","oNy","oTot"].forEach(id => { $(id).textContent = "-"; });
+  $("oStatus").className = "status idle"; $("oStatus").textContent = t("stIdle");
+  $("oNote").textContent = t("noteIdle"); $("oOri").textContent = ""; $("oWarn").hidden = true;
+  $("cmp").innerHTML = ""; $("cmp").dataset.h = "";
+  $("draw").innerHTML = `<div class="empty">${t("empty")}</div>`;
+}
+
+function render(){
+  const p = read();
+  const showPc = (v, base) => base > 0 ? mm(v) : "-";
+  $("pcX").textContent = showPc(p.qX, p.prdX); $("pcY").textContent = showPc(p.qY, p.prdY);
+  if (!(p.rawX>0 && p.rawY>0 && p.prdX>0 && p.prdY>0)) { clearOut(); return; }
+  const {L, rot, N, R} = calc(p), {ax, ay} = L;
+
+  $("oCount").innerHTML = `${fmt(L.count)}<small>${t("pcs")}</small>`;
+  $("oGrid").textContent = `X ${fmt(ax.n)} × Y ${fmt(ay.n)}`;
+  $("oNx").textContent = fmt(ax.n); $("oNy").textContent = fmt(ay.n);
+  $("oTot").textContent = `${fmt(L.count)} ${t("pcs")}`;
+
+  // 테두리 마진 경고
+  const sides = borderSides(p), warn = sides < MIN_SIDES;
+  $("oWarn").hidden = !warn;
+  if (warn) $("oWarn").innerHTML = `<b>⚠ ${t("warnBorder")}</b><span>${t("warnBorderSub", {n: sides, req: MIN_SIDES, min: BORDER_MIN})}</span>`;
+
+  const st = $("oStatus");
+  if (!L.fit){ st.className = "status bad"; st.textContent = t("stBad"); $("oNote").textContent = t("noteBad", {s: short(L)}); }
+  else {
+    st.className = warn ? "status warn" : "status ok"; st.textContent = warn ? t("stWarn") : t("stOk");
+    $("oNote").textContent = t("noteOk", {x: mm(ax.net), y: mm(ay.net)});
+  }
+  $("oOri").textContent = `${rot ? t("oriR") : t("oriN")} · ${t("sheet")} ${fmt(p.rawX)} × ${fmt(p.rawY)} mm`;
+
+  const card = (key, lay, label) => {
+    const sel = (key === "r") === rot;
+    const detail = lay.fit ? `${t("remain")} X ${fmt(lay.ax.net)} · Y ${fmt(lay.ay.net)} mm` : t("short", {s: short(lay)});
+    return `<button type="button" class="cc${sel ? " sel" : ""}${lay.fit ? "" : " no"}" data-ori="${key}">
+      <span class="cl">${label}${sel ? " · " + t("applied") : ""}</span><span class="cn">${lay.fit ? fmt(lay.count) + " " + t("pcs") : t("na")}</span><span class="cd">${detail}</span></button>`;
+  };
+  const h = `<div class="ch">${p.ori === "auto" ? t("cmpAuto") : t("cmpMan")}</div>` + card("n", N, t("normal")) + card("r", R, t("rot"));
+  if ($("cmp").dataset.h !== h){ $("cmp").innerHTML = h; $("cmp").dataset.h = h; }
+
+  draw(p, L);
+}
+
+// 분할 형태: 원자재 좌측 하단을 기준으로 배치
+function draw(p, L){
+  const W = p.rawX, H = p.rawY, {ax, ay} = L, cut = p.cut;
+  const qw = L.qx, qh = L.qy;
+  const M = Math.max(W, H), box = $("draw").getBoundingClientRect();
+  // 도면 글자를 화면 기준 약 12px로 유지
+  const upp = (box.width > 0 && box.height > 0) ? Math.max(W/(box.width*0.82), H/(box.height*0.78)) : M/400;
+  const fs = 12.5 * upp, pad = fs * 3.4;
+  const vx = -pad, vy = -pad, vw = W + pad*1.8, vh = H + pad*1.9;
+  const hs = M/60, total = ax.n * ay.n, maxCells = 3000;
+  const x0 = p.bL, yB = H - p.bB;                 // 배치 기준점 (좌측 하단)
+  const uw = W - p.bL - p.bR, uh = H - p.bT - p.bB;
+  let s = `<svg viewBox="${vx} ${vy} ${vw} ${vh}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${t("layout")}">
+  <defs><pattern id="hatch" width="${hs}" height="${hs}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <rect width="${hs}" height="${hs}" fill="var(--cell)"/><line x1="0" y1="0" x2="0" y2="${hs}" stroke="var(--hatch)" stroke-width="1" vector-effect="non-scaling-stroke"/></pattern></defs>
+  <style>text{font-family:var(--font);fill:var(--muted)} .ns{vector-effect:non-scaling-stroke}</style>
+  <rect x="0" y="0" width="${W}" height="${H}" fill="var(--border-area)" stroke="var(--fg)" stroke-width="1.5" class="ns"/>`;
+  // 사용 영역 = 기본 잔량색 (재단품·절단 폭이 덮지 않은 부분이 잔량)
+  if (uw > 0 && uh > 0) s += `<rect x="${x0}" y="${p.bT}" width="${uw}" height="${uh}" fill="var(--remain)" stroke="var(--remain-line)" stroke-dasharray="4 3" stroke-width="1" class="ns"/>`;
+
+  const blockW = ax.n*qw + (ax.n-1)*cut, blockH = ay.n*qh + (ay.n-1)*cut;
+  const kerf = (x, y, w, h) => (w > 0 && h > 0) ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--kerf)" stroke="var(--kerf)" stroke-width="1" class="ns"/>` : "";
+  if (L.fit && cut > 0){
+    // 열 사이 절단 (+ 우측 잔량 분리 절단)
+    for (let i = 0; i < ax.n; i++){
+      const kx = x0 + (i+1)*qw + i*cut, last = i === ax.n - 1;
+      const w = last ? Math.min(cut, ax.rem) : cut;
+      s += kerf(kx, yB - blockH, w, blockH);
+    }
+    // 행 사이 절단 (+ 상단 잔량 분리 절단, 사용 영역 전체 폭)
+    for (let j = 0; j < ay.n; j++){
+      const last = j === ay.n - 1, h = last ? Math.min(cut, ay.rem) : cut;
+      const ky = yB - (j+1)*qh - j*cut - h;
+      s += kerf(x0, ky, last ? uw : blockW, h);
+    }
+  }
+  const showLabel = qw > fs*3.2 && qh > fs*2.6 && total <= 200;
+  let k = 0;
+  for (let j=0; j<ay.n && k<maxCells; j++) for (let i=0; i<ax.n && k<maxCells; i++, k++){
+    const x = x0 + i*(qw + cut), y = yB - (j+1)*qh - j*cut;
+    s += `<rect x="${x}" y="${y}" width="${qw}" height="${qh}" fill="url(#hatch)" stroke="${L.fit ? "var(--prod)" : "var(--bad)"}" stroke-width="1.2" class="ns"/>`;
+    const mx = qw - L.px, my = qh - L.py;
+    if (mx > 0 || my > 0) s += `<rect x="${x + mx/2}" y="${y + my/2}" width="${L.px}" height="${L.py}" fill="none" stroke="var(--prod)" stroke-dasharray="5 3" stroke-width="1" class="ns"/>`;
+    if (showLabel){
+      s += `<text x="${x+qw/2}" y="${y+qh/2}" text-anchor="middle" font-size="${fs*1.05}" style="fill:var(--fg);font-weight:700">${t("product")}</text>`;
+      s += `<text x="${x+qw/2}" y="${y+qh/2+fs*1.2}" text-anchor="middle" font-size="${fs*0.8}">${fmt(L.px)} × ${fmt(L.py)}</text>`;
+    }
+  }
+  // 잔량 표시
+  if (L.fit){
+    const rx = ax.net, ry = ay.net;
+    const lab = (cx, cy, w, h, v, vert) => {
+      if (Math.min(w, h) < fs*1.4 || Math.max(w, h) < fs*6) return "";
+      const tr = vert ? ` transform="rotate(-90 ${cx} ${cy})"` : "";
+      return `<text x="${cx}" y="${cy + fs*0.35}" text-anchor="middle" font-size="${fs*0.9}" style="fill:var(--remain-ink);font-weight:700"${tr}>${t("lgRemain")} ${fmt(v)}</text>`;
+    };
+    s += lab(x0 + blockW + Math.min(cut, ax.rem) + rx/2, yB - blockH/2, rx, blockH, rx, rx < blockH);
+    s += lab(x0 + uw/2, p.bT + ry/2, uw, ry, ry, false);
+  }
+  const tick = fs*0.45;
+  const dimH = (x1,x2,y,label,col) => `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${col}" stroke-width="1" class="ns"/>
+    <line x1="${x1-tick}" y1="${y+tick}" x2="${x1+tick}" y2="${y-tick}" stroke="${col}" stroke-width="1.4" class="ns"/>
+    <line x1="${x2-tick}" y1="${y+tick}" x2="${x2+tick}" y2="${y-tick}" stroke="${col}" stroke-width="1.4" class="ns"/>
+    <text x="${(x1+x2)/2}" y="${y-fs*0.4}" text-anchor="middle" font-size="${fs}" style="fill:${col}">${label}</text>`;
+  const dimV = (y1,y2,x,label,col,side=-1) => { const tx = side<0 ? x-fs*0.4 : x+fs*1.2; return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${col}" stroke-width="1" class="ns"/>
+    <line x1="${x-tick}" y1="${y1+tick}" x2="${x+tick}" y2="${y1-tick}" stroke="${col}" stroke-width="1.4" class="ns"/>
+    <line x1="${x-tick}" y1="${y2+tick}" x2="${x+tick}" y2="${y2-tick}" stroke="${col}" stroke-width="1.4" class="ns"/>
+    <text x="${tx}" y="${(y1+y2)/2}" text-anchor="middle" font-size="${fs}" transform="rotate(-90 ${tx} ${(y1+y2)/2})" style="fill:${col}">${label}</text>`; };
+  s += dimH(0, W, H + pad*0.75, `${t("sheet")} X ${fmt(W)}`, "var(--dim)");
+  s += dimV(0, H, -pad*0.55, `${t("sheet")} Y ${fmt(H)}`, "var(--dim)");
+  s += dimH(x0, x0 + qw, -pad*0.35, fmt(qw), "var(--cut)");
+  s += dimV(yB - qh, yB, W + pad*0.3, fmt(qh), "var(--cut)", 1);
+  if (total > maxCells) s += `<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="${fs*1.4}" style="fill:var(--fg)">${t("maxCells", {n: fmt(maxCells)})}</text>`;
+  $("draw").innerHTML = s + `</svg>`;
+}
+
+function applyLang(){
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll("[data-lang]").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+  document.title = "BAOS · " + t("title");
+  $("cmp").dataset.h = "";
+  render();
+}
+
+// 입력: 천단위 구분기호는 칸을 벗어날 때 표시
+const inputs = IDS.map($);
+inputs.forEach((el, i) => {
+  el.addEventListener("input", () => { el.value = el.value.replace(/[^\d.,\-]/g, ""); render(); });
+  el.addEventListener("blur", () => { const v = parse(el.value); el.value = isFinite(v) ? v.toLocaleString("en-US", {maximumFractionDigits:3}) : ""; });
+  el.addEventListener("focus", () => { el.value = el.value.replace(/,/g, ""); el.select(); });
+  el.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); (inputs[i+1] || inputs[0]).focus(); } });
+});
+document.querySelectorAll("input[name=ori]").forEach(r => r.addEventListener("change", render));
+window.addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(render, 80); });
+$("form").addEventListener("submit", e => e.preventDefault());
+$("cmp").addEventListener("click", e => {
+  const b = e.target.closest("[data-ori]"); if (!b) return;
+  document.querySelector(`input[name=ori][value="${b.dataset.ori}"]`).checked = true; render();
+});
+document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => {
+  lang = b.dataset.lang; try { localStorage.setItem("baos-lang", lang); } catch(e){} applyLang();
+}));
+$("btnReset").addEventListener("click", () => {
+  setDefaults(); $("oriAuto").checked = true; render(); $("rawX").focus();
+});
+if (window.self !== window.top) $("btnPrint").hidden = true;
+$("btnPrint").addEventListener("click", () => window.print());
+function setDefaults(){
+  IDS.forEach(k => { const v = DEFAULTS[k]; $(k).value = (v === "" || v == null) ? "" : Number(v).toLocaleString("en-US", {maximumFractionDigits:3}); });
+}
+setDefaults();
+applyLang();
+// 웹 앱(홈 화면 설치)일 때 오프라인 캐시 등록
+if ("serviceWorker" in navigator && location.protocol === "https:" && document.querySelector('link[rel="manifest"]')){
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+if(location.protocol==='http:'&&location.hostname==='127.0.0.1'){const hb=()=>fetch('/ping',{cache:'no-store'}).catch(()=>{});hb();setInterval(hb,3000);
+  window.addEventListener('pagehide',()=>{try{navigator.sendBeacon('/bye')}catch(e){}});}
+</script>
+
+</body></html>
